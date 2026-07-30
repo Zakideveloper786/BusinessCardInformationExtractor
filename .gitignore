@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.pytest_cache/
+venv/
+.venv/
+env/
+.env
+
+# Google Credentials & Settings
+serviceaccount.json
+
+# Local temp directories/files
+uploads/
+card.png
+*.log
+
+# Frontend build & packages
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# OS files
+.DS_Store
+Thumbs.db
