@@ -30,12 +30,17 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
-
-creds = Credentials.from_service_account_file(
-    "serviceaccount.json",
-    scopes=SCOPES
-)
-
+if "GOOGLE_SERVICE_ACCOUNT_JSON" in os.environ:
+    service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+    creds = Credentials.from_service_account_info(
+        service_account_info,
+        scopes=SCOPES
+    )
+else:
+    creds = Credentials.from_service_account_file(
+        "serviceaccount.json",
+        scopes=SCOPES
+    )
 gc = gspread.authorize(creds)
 
 sheet = gc.open("Business Cards").sheet1
