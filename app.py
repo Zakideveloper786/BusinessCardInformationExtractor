@@ -9,7 +9,7 @@ from openai import OpenAI
 
 import gspread
 from google.oauth2.service_account import Credentials
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 # =====================================================
@@ -49,7 +49,11 @@ sheet = gc.open("Business Cards").sheet1
 # Flask Application Setup
 # =====================================================
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder="frontend/dist",
+    static_url_path=""
+)
 CORS(app)
 
 # Ensure uploads directory exists
@@ -225,7 +229,23 @@ def submit_card():
     except Exception as e:
         print(f"Error submitting card: {e}")
         return jsonify({"error": str(e)}), 500
+# =====================================================
+# React Frontend
+# =====================================================
 
+@app.route("/")
+def home():
+    return app.send_static_file("index.html")
+
+
+@app.route("/<path:path>")
+def serve_frontend(path):
+    file_path = os.path.join(app.static_folder, path)
+
+    if os.path.exists(file_path):
+        return send_from_directory(app.static_folder, path)
+
+    return app.send_static_file("index.html")
 
 if __name__ == "__main__":
     # If run with run-cli argument, process default image
