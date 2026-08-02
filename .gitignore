@@ -10,6 +10,8 @@ env/
 .env
 
 # Google Credentials & Settings
+serviceaccount.json
+
 
 
 # Local temp directories/files

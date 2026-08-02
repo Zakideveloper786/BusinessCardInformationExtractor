@@ -27,7 +27,7 @@ function App() {
 
     try {
       let response;
-      if (activeTab === 'upload' && file) {
+      if ((activeTab === 'upload' || activeTab === 'camera') && file) {
         response = await extractBusinessCard(file, true);
       } else if (activeTab === 'url' && url.trim()) {
         response = await extractBusinessCard(url.trim(), false);

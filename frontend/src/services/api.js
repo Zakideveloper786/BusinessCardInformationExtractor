@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// Use localhost during development and relative URL in production
+// Use dynamic hostname during development (supports localhost & mobile network IP)
 const API_BASE_URL =
   import.meta.env.DEV
-    ? 'http://localhost:5000/api'
+    ? `http://${window.location.hostname}:5000/api`
     : '/api';
 
 const api = axios.create({

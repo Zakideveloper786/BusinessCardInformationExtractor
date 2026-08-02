@@ -3,6 +3,7 @@ import os
 import json
 import base64
 import sys
+import mimetypes
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -66,9 +67,12 @@ def process_card_extraction(image_source):
     if image_source.startswith(("http://", "https://")):
         image_input = image_source
     else:
+        mime_type, _ = mimetypes.guess_type(image_source)
+        if not mime_type:
+            mime_type = "image/jpeg"
         with open(image_source, "rb") as image_file:
             image_base64 = base64.b64encode(image_file.read()).decode("utf-8")
-            image_input = f"data:image/png;base64,{image_base64}"
+            image_input = f"data:{mime_type};base64,{image_base64}"
 
     # Ask GPT
     response = client.responses.create(
@@ -80,7 +84,7 @@ def process_card_extraction(image_source):
                     {
                         "type": "input_text",
                         "text": """
-First, analyze the image to determine whether it is actually a business card or not.
+Extract all business card / contact information visible in the image.
 
 Return ONLY valid JSON matching this schema:
 
@@ -96,11 +100,10 @@ Return ONLY valid JSON matching this schema:
 }
 
 Rules:
-1. If the image is not a business card (e.g. it is a landscape, person, random object, or different document), set "is_business_card" to false, and leave all other fields as null or [].
-2. If it is a business card, set "is_business_card" to true, and extract all visible information.
-3. Return ONLY raw JSON. Do NOT wrap JSON inside ```json.
-4. If a single value is missing use null.
-5. Extract ALL phone numbers, email addresses, and websites.
+1. Always attempt to extract name, designation, company, phone numbers, email addresses, websites, and address from any text visible in the image.
+2. If any contact information or business details are found, set "is_business_card" to true.
+3. Return ONLY raw JSON. Do NOT wrap JSON inside ```json or ```.
+4. If a single value is missing use null for strings or [] for lists.
 """
                     },
                     {
@@ -114,16 +117,38 @@ Rules:
 
     # Parse JSON
     text = response.output_text.strip()
+    print(f"\n--- DEBUG GPT RESPONSE ---\n{text}\n---------------------------")
 
-    # Remove markdown if GPT returns it
-    if text.startswith("```json"):
-        text = text.replace("```json", "").replace("```", "").strip()
+    # Clean markdown if GPT wraps response in ``` or ```json
+    if "```" in text:
+        # Extract text between first ``` and last ```
+        parts = text.split("```")
+        for part in parts:
+            cleaned = part.strip()
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:].strip()
+            if cleaned.startswith("{") and cleaned.endswith("}"):
+                text = cleaned
+                break
 
     card = json.loads(text)
 
-    # Check if the image is a business card
-    if not card.get("is_business_card", True):
-        raise ValueError("The uploaded image does not appear to be a business card. Please upload a valid business card.")
+    # Check if any information was extracted
+    has_extracted_info = any([
+        card.get("name"),
+        card.get("designation"),
+        card.get("company"),
+        card.get("address"),
+        bool(card.get("phone")),
+        bool(card.get("email")),
+        bool(card.get("website"))
+    ])
+
+    if has_extracted_info:
+        card["is_business_card"] = True
+
+    if not card.get("is_business_card", False) and not has_extracted_info:
+        raise ValueError("Could not detect business card details in this image. Please ensure the card is clear, well-lit, and legible.")
 
     return card
 
@@ -137,8 +162,10 @@ def extract_card():
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename != '':
-                # Save file securely
-                filename = "temp_uploaded_card.png"
+                ext = os.path.splitext(file.filename)[1].lower() if file.filename else '.jpg'
+                if not ext or ext not in ['.jpg', '.jpeg', '.png', '.webp']:
+                    ext = '.jpg'
+                filename = f"temp_uploaded_card{ext}"
                 temp_file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(temp_file_path)
                 image_source = temp_file_path
